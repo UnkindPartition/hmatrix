@@ -33,6 +33,7 @@ import Foreign.C.String ( CString, newCString )
 import System.IO.Unsafe ( unsafePerformIO )
 import Control.DeepSeq ( NFData(..) )
 import Text.Printf
+import GHC.Stack
 
 -----------------------------------------------------------------
 
@@ -192,7 +193,7 @@ compatdim (a:b:xs)
 -- | Create a matrix from a list of vectors.
 -- All vectors must have the same dimension,
 -- or dimension 1, which is are automatically expanded.
-fromRows :: Element t => [Vector t] -> Matrix t
+fromRows :: (HasCallStack, Element t) => [Vector t] -> Matrix t
 fromRows [] = emptyM 0 0
 fromRows vs = case compatdim (map dim vs) of
     Nothing -> error $ "fromRows expects vectors with equal sizes (or singletons), given: " ++ show (map dim vs)
@@ -225,7 +226,7 @@ toColumns :: Element t => Matrix t -> [Vector t]
 toColumns m = toRows . trans $ m
 
 -- | Reads a matrix position.
-(@@>) :: Storable t => Matrix t -> (Int,Int) -> t
+(@@>) :: (HasCallStack, Storable t) => Matrix t -> (Int,Int) -> t
 infixl 9 @@>
 m@Matrix {irows = r, icols = c} @@> (i,j)
     | i<0 || i>=r || j<0 || j>=c = error "matrix indexing out of range"
@@ -239,7 +240,7 @@ atM' m i j = xdat m `at'` (i * (xRow m) + j * (xCol m))
 
 ------------------------------------------------------------------
 
-matrixFromVector :: Storable t => MatrixOrder -> Int -> Int -> Vector t -> Matrix t
+matrixFromVector :: (HasCallStack, Storable t) => MatrixOrder -> Int -> Int -> Vector t -> Matrix t
 matrixFromVector _ 1 _ v@(dim->d) = Matrix { irows = 1, icols = d, xdat = v, xRow = d, xCol = 1 }
 matrixFromVector _ _ 1 v@(dim->d) = Matrix { irows = d, icols = 1, xdat = v, xRow = 1, xCol = d }
 matrixFromVector o r c v
@@ -277,7 +278,7 @@ liftMatrix f m@Matrix { irows = r, icols = c, xdat = d}
     | otherwise = matrixFromVector (orderOf m) r c (f d)
 
 -- | application of a vector function on the flattened matrices elements
-liftMatrix2 :: (Element t, Element a, Element b) => (Vector a -> Vector b -> Vector t) -> Matrix a -> Matrix b -> Matrix t
+liftMatrix2 :: (HasCallStack, Element t, Element a, Element b) => (Vector a -> Vector b -> Vector t) -> Matrix a -> Matrix b -> Matrix t
 liftMatrix2 f m1@(size->(r,c)) m2
     | (r,c)/=size m2 = error "nonconformant matrices in liftMatrix2"
     | rowOrder m1 = matrixFromVector RowMajor    r c (f (flatten m1) (flatten m2))
@@ -381,7 +382,7 @@ instance Element Z where
 -------------------------------------------------------------------
 
 -- | reference to a rectangular slice of a matrix (no data copy)
-subMatrix :: Element a
+subMatrix :: (HasCallStack, Element a)
             => (Int,Int) -- ^ (r0,c0) starting position
             -> (Int,Int) -- ^ (rt,ct) dimensions of submatrix
             -> Matrix a -- ^ input matrix
@@ -413,7 +414,7 @@ conformVs vs = map (conformVTo n) vs
   where
     n = maxZ (map dim vs)
 
-conformMTo :: Element t => (Int, Int) -> Matrix t -> Matrix t
+conformMTo :: (HasCallStack, Element t) => (Int, Int) -> Matrix t -> Matrix t
 conformMTo (r,c) m
     | size m == (r,c) = m
     | size m == (1,1) = matrixFromVector RowMajor r c (constantD (m@@>(0,0)) (r*c))
@@ -421,7 +422,7 @@ conformMTo (r,c) m
     | size m == (1,c) = repRows r m
     | otherwise = error $ "matrix " ++ shSize m ++ " cannot be expanded to " ++ shDim (r,c)
 
-conformVTo :: Element t => Int -> Vector t -> Vector t
+conformVTo :: (HasCallStack, Element t) => Int -> Vector t -> Vector t
 conformVTo n v
     | dim v == n = v
     | dim v == 1 = constantD (v@>0) n

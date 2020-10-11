@@ -45,6 +45,7 @@ import Data.Binary.Put
 import Control.Monad(replicateM)
 import qualified Data.ByteString.Internal as BS
 import Data.Vector.Storable.Internal(updPtr)
+import GHC.Stack
 
 type I = CInt
 type Z = Int64
@@ -140,10 +141,12 @@ idxs js = fromList (map fromIntegral js) :: Vector I
 it :: (Enum t, Num t, Foreign.Storable.Storable t) => Vector t
 
 -}
-subVector :: Storable t => Int       -- ^ index of the starting element
-                        -> Int       -- ^ number of elements to extract
-                        -> Vector t  -- ^ source
-                        -> Vector t  -- ^ result
+subVector
+  :: (HasCallStack, Storable t)
+  => Int       -- ^ index of the starting element
+  -> Int       -- ^ number of elements to extract
+  -> Vector t  -- ^ source
+  -> Vector t  -- ^ result
 subVector = Vector.slice
 {-# INLINE subVector #-}
 
@@ -198,7 +201,7 @@ vjoin as = unsafePerformIO $ do
 it :: [Vector Double]
 
 -}
-takesV :: Storable t => [Int] -> Vector t -> [Vector t]
+takesV :: (HasCallStack, Storable t) => [Int] -> Vector t -> [Vector t]
 takesV ms w | sum ms > dim w = error $ "takesV " ++ show ms ++ " on dim = " ++ (show $ dim w)
             | otherwise = go ms w
     where go [] _ = []

@@ -83,6 +83,7 @@ import Control.Arrow((&&&),(***))
 import Data.Complex
 import Data.Function(on)
 import Internal.ST
+import GHC.Stack
 #if MIN_VERSION_base(4,11,0)
 import Prelude hiding ((<>))
 #endif
@@ -389,7 +390,7 @@ it :: Vector Double
 class Indexable c t | c -> t , t -> c
   where
     infixl 9 !
-    (!) :: c -> Int -> t
+    (!) :: HasCallStack => c -> Int -> t
 
 instance Indexable (Vector Double) Double
   where

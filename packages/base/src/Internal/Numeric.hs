@@ -28,6 +28,7 @@ import Internal.Vectorized
 import Internal.LAPACK(multiplyR,multiplyC,multiplyF,multiplyQ,multiplyI,multiplyL)
 import Data.List.Split(chunksOf)
 import qualified Data.Vector.Storable as V
+import GHC.Stack
 
 --------------------------------------------------------------------------------
 
@@ -59,7 +60,7 @@ class Element e => Container c e
     cmap'        :: (Element b) => (e -> b) -> c e -> c b
     konst'      :: e -> IndexOf c -> c e
     build'       :: IndexOf c -> (ArgOf c e) -> c e
-    atIndex'     :: c e -> IndexOf c -> e
+    atIndex'     :: HasCallStack => c e -> IndexOf c -> e
     minIndex'    :: c e -> IndexOf c
     maxIndex'    :: c e -> IndexOf c
     minElement'  :: c e -> e
@@ -70,11 +71,13 @@ class Element e => Container c e
     ccompare' :: Ord e => c e -> c e -> c I
     cselect'  :: c I -> c e -> c e -> c e -> c e
     find' :: (e -> Bool) -> c e -> [IndexOf c]
-    assoc' :: IndexOf c       -- ^ size
+    assoc' :: HasCallStack
+          => IndexOf c       -- ^ size
           -> e                -- ^ default value
           -> [(IndexOf c, e)] -- ^ association list
           -> c e              -- ^ result
-    accum' :: c e             -- ^ initial structure
+    accum' :: HasCallStack
+          => c e             -- ^ initial structure
           -> (e -> e -> e)    -- ^ update function
           -> [(IndexOf c, e)] -- ^ association list
           -> c e              -- ^ result
@@ -363,12 +366,23 @@ instance (Num a, Element a, Container Vector a) => Container Matrix a
     fromZ' = liftMatrix fromZ'
     toZ'   = liftMatrix toZ'
 
-
+emptyErrorV
+  :: (HasCallStack, V.Storable c)
+  => String
+  -> (Vector c -> p)
+  -> Vector c
+  -> p
 emptyErrorV msg f v =
     if dim v > 0
         then f v
         else error $ msg ++ " of empty Vector"
 
+emptyErrorM
+  :: (HasCallStack, V.Storable c)
+  => String
+  -> (Matrix c -> p)
+  -> Matrix c
+  -> p
 emptyErrorM msg f m =
     if rows m > 0 && cols m > 0
         then f m
